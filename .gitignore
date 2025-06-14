@@ -1,0 +1,10 @@
+# Ignore sensitive files
+secrets/
+.env
+*.env
+# Ignore data directories
+**/data/
+**/config/
+**/downloads/
+**/cache/
+

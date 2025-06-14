@@ -1,0 +1,161 @@
+version: "3.9"
+
+########################### NETWORKS
+# You may customize the network subnet (192.168.0.0/24) below as you please.
+# Docker Compose version 3.5 or higher required to define networks this way.
+
+networks:
+    default:
+      driver: bridge
+
+########################### EXTENSION FIELDS
+# Helps eliminate repetition of sections
+# More Info on how to use this: https://github.com/htpcBeginner/docker-traefik/pull/228
+ 
+# Common environment values
+x-environment: &default-tz-puid-pgid
+  env_file:
+    - ./.env
+    - ./secrets/secrets.env
+  environment:
+    - TZ=${TZ}
+    - PUID=${PUID}
+    - PGID=${PGID}
+
+# Keys common to some of the core services that we always to automatically restart on failure
+x-common-keys-core: &common-keys-core
+  <<: *default-tz-puid-pgid
+  networks:
+    - default
+  security_opt:
+    - no-new-privileges:true  # Prevents containers from acquiring additional privileges
+  restart: always  # Always restart these core containers if they stop
+ 
+# Keys common to some of the dependent services/apps
+x-common-keys-apps: &common-keys-apps
+  networks:
+    - default
+  security_opt:
+    - no-new-privileges:true  # Security measure to prevent privilege escalation
+  restart: unless-stopped  # Restart container unless manually stopped
+ 
+# Keys common to some of the services in media-services.txt
+x-common-keys-media: &common-keys-media
+  networks:
+    - default
+  security_opt:
+    - no-new-privileges:true  # Prevents privilege escalation in media containers
+  restart: "no"  # No automatic restart for media services
+
+  ########################### SERVICES
+services:
+############################# FRONTENDS
+  # Portainer - WebUI for Containers
+  portainer:
+    <<: *common-keys-core  # Inherits common core configurations
+    container_name: portainer
+    image: portainer/portainer-ce:latest
+    command: -H unix:///var/run/docker.sock  # Direct socket connection (consider using Socket Proxy for enhanced security)
+    networks:
+      - default
+    ports:  # WebUI access port (can be removed if using Nginx Proxy Manager)
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Read-only access to Docker socket
+      - $DOCKERDIR/appdata/portainer/data:/data  # Persistent storage for Portainer data
+
+  # Jellyfin - Media Server
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    <<: *common-keys-core
+    volumes:
+      - /media/data/jellyfin/config:/config  # Configuration files
+      - /media/data/jellyfin/cache:/cache    # Cache directory for better performance
+      - type: bind
+        source: /media/data/jellyfin
+        target: /media                       # Media library location
+
+  # Gluetun - VPN Client Container
+  gluetun:
+    <<: *common-keys-core
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    hostname: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - 6881:6881
+      - 8085:8085
+      - 9117:9117
+      - 8989:8989
+      - 9696:9696
+    volumes:
+      - /home/sunnyhouse_server/docker/gluten:/gluetun
+    environment:
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+      - TZ=${TZ}
+      - UPDATER_PERIOD=${UPDATER_PERIOD}
+
+  # qBittorrent - Torrent Client
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent
+    container_name: qbittorrent
+    network_mode: "service:gluetun"  # Routes all traffic through VPN
+    environment:
+      - PUID=${PUID}     # Process User ID for permissions
+      - PGID=${PGID}     # Process Group ID for permissions
+      - WEBUI_PORT=8085  # Web interface port
+    volumes:
+      - /home/sunnyhouse_server/docker/qbittorrent:/config
+      - /home/sunnyhouse_server/docker/qbittorrent/downloads:/downloads
+    depends_on:
+      - gluetun
+    restart: always
+
+  # Media Management Stack
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - AUTO_UPDATE=true #optional
+      - RUN_OPTS= #optional
+    volumes:
+      - /home/sunnyhouse_server/docker/jackett/data:/config
+      - /home/sunnyhouse_server/docker/jackett/blackhole:/downloads
+    restart: unless-stopped
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /home/sunnyhouse_server/docker/sonarr/data:/config
+      - /home/sunnyhouse_server/docker/sonarr/tvseries:/tv #optional
+      - /home/sunnyhouse_server/docker/sonarr/downloadclient-downloads:/downloads #optional
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /home/sunnyhouse_server/docker/prowlarr/data:/config
+    restart: unless-stopped
