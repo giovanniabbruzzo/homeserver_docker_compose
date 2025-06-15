@@ -96,7 +96,7 @@ In short, using Linux:
    - Finally, you can add these info in a .env file in the same folder as docker-compose.yml: 
       VPN_SERVICE_PROVIDER=nordvpn
       WIREGUARD_PRIVATE_KEY=<YOUR_WIREGUARD_ACCESS_TOKEN>
-      WIREGUARD_ADDRESSES=<SERVER_ADDRESS>/<NUMBER_FOUND_AT_BOTTOM_OF_RESPONSE>
+      WIREGUARD_ADDRESSES=10.5.0.2/32
 
 ### Nextcloud
 - Access URL: `http://localhost:8081`

@@ -114,7 +114,7 @@ services:
       - PGID=${PGID}     # Process Group ID for permissions
       - WEBUI_PORT=8085  # Web interface port
     volumes:
-      - /home/sunnyhouse_server/docker/qbittorrent:/config
+      - /home/sunnyhouse_server/docker/qbittorrent/config:/config
       - /home/sunnyhouse_server/docker/qbittorrent/downloads:/downloads
     depends_on:
       - gluetun
@@ -229,6 +229,7 @@ services:
   # Redis — Memory Caching. If you’re going to rely on next cloud for important files, I highly recommend setting up Redis.
   redis:
     image: redis:alpine
+    restart: always
     container_name: redis
     volumes:
       -  /home/sunnyhouse_server/docker/redis:/data  
@@ -255,6 +256,7 @@ services:
   # Filebrowser - A file management web application
   filebrowser:
     image: filebrowser/filebrowser:latest
+    restart: always
     container_name: filebrowser
     volumes:
       - ${HOME_DIR}:/srv 
@@ -270,6 +272,7 @@ services:
   # Bender - Simple app dashboard for your services
   bender:
     image: jez500/bender
+    restart: always
     #To build from source, comment previous line and uncomment below
     #build: .
     container_name: bender
