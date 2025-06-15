@@ -15,12 +15,7 @@ networks:
 # Common environment values
 x-environment: &default-tz-puid-pgid
   env_file:
-    - ./.env
-    - ./secrets/secrets.env
-  environment:
-    - TZ=${TZ}
-    - PUID=${PUID}
-    - PGID=${PGID}
+    - .env
 
 # Keys common to some of the core services that we always to automatically restart on failure
 x-common-keys-core: &common-keys-core

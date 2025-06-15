@@ -79,6 +79,19 @@ docker-compose down
 - Protocol: WireGuard
 - Update frequency: 24h
 
+To get the wireguard key for Gluten VPN with NordVPN is possible to follow this YouTube tutorial https://www.youtube.com/watch?v=eY4sYGYt0b4. 
+In short, using Linux:
+   - Connect to NordVPN client with your credentials.
+   - Connect to NordVPN website on the browser and make sure to be in NordVPN page. From https://my.nordaccount.com/dashboard/ click on NordVPN.
+   - At the bottom you will find "Get Access Token".
+   - Now click on "Generate new token" and copy the token.
+   - You can use that token with this command to get the Wireguard token: ```curl -s -u token:<ACCESS_TOKEN> https://api.nordvpn.com/v1/users/services/credentials | jq -r .nordlynx_private_key```
+   - You may need to get the info regarding you VPN server connection with this command: ```curl -s "https://api.nordvpn.com/v1/servers/recommendations?&filters\[servers_technologies\]\[identifier\]=wireguard_udp&limit=1" | jq -r '.[]|.hostname, .station, (.locations|.[]|.country|.city.name), (.locations|.[]|.country|.name), (.technologies|.[].metadata|.[].value), .load'```
+   - Finally, you can add these info in a .env file in the same folder as docker-compose.yml: 
+      VPN_SERVICE_PROVIDER=nordvpn
+      WIREGUARD_PRIVATE_KEY=<YOUR_WIREGUARD_ACCESS_TOKEN>
+      WIREGUARD_ADDRESSES=<SERVER_ADDRESS>/<NUMBER_FOUND_AT_BOTTOM_OF_RESPONSE>
+
 ### qBittorrent
 - Web UI port: 8085
 - Default credentials: admin/adminadmin
