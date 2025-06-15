@@ -5,8 +5,11 @@ version: "3.9"
 # Docker Compose version 3.5 or higher required to define networks this way.
 
 networks:
-    default:
-      driver: bridge
+  default:
+    driver: bridge
+  cloud:
+    name: cloud
+    driver: bridge
 
 ########################### EXTENSION FIELDS
 # Helps eliminate repetition of sections
@@ -64,11 +67,15 @@ services:
     image: jellyfin/jellyfin
     container_name: jellyfin
     <<: *common-keys-core
+    networks:
+      - default
+    ports:  # WebUI access port (can be removed if using Nginx Proxy Manager)
+      - "8096:8096"
     volumes:
-      - /media/data/jellyfin/config:/config  # Configuration files
-      - /media/data/jellyfin/cache:/cache    # Cache directory for better performance
+      - /home/sunnyhouse_server/docker/jellyfin/config:/config  # Configuration files
+      - /home/sunnyhouse_server/docker/jellyfin/cache:/cache    # Cache directory for better performance
       - type: bind
-        source: /media/data/jellyfin
+        source: /home/sunnyhouse_server/docker/jellyfin
         target: /media                       # Media library location
 
   # Gluetun - VPN Client Container
@@ -154,3 +161,122 @@ services:
     volumes:
       - /home/sunnyhouse_server/docker/prowlarr/data:/config
     restart: unless-stopped
+  
+  # Nextcloud - Self-hosted Cloud Storage
+  nextcloud:
+    image: nextcloud # The image that will be used. The official nextcloud docker
+    container_name: nextcloud # Just the name of the container. Help you identify it
+    restart: unless-stopped # If something happens like the container crashes then we want the container to start up again
+    networks: # Link all the containers through the network "cloud"
+      - cloud
+    depends_on: # Wait for the database and redis containers before starting nextcloud
+      - nextclouddb 
+      - redis
+    ports: # If you have multiple web service on your server you need to change the port. I am directing nextcloud from port 80 to port 8081
+      - 8081:80
+    volumes: # These are important. This will map a file directory inside the container to a directory on your actual computer
+      - /home/sunnyhouse_server/docker/nextcloud/html:/var/www/html # Map the /var/www/html directory in the container to the html folder in the same folder as the docker-compose.yml
+      - /home/sunnyhouse_server/docker/nextcloud/custom_apps:/var/www/html/custom_apps # These volumes allow us to easily interact with the files in the container
+      - /home/sunnyhouse_server/docker/nextcloud/config:/var/www/html/config
+      - /home/sunnyhouse_server/docker/nextcloud/data:/var/www/html/data
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - MYSQL_DATABASE=nextcloud # This is the database information we will set up in the next section
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - REDIS_HOST=redis # The redis container to use
+  
+  # MySQL database required for Nextcloud
+  nextclouddb:
+    image: mariadb # offical mariadb image
+    container_name: nextcloud-db 
+    restart: unless-stopped 
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW 
+    networks: 
+      - cloud
+    volumes:
+      -  /home/sunnyhouse_server/docker/nextclouddb:/var/lib/mysql
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - MYSQL_DATABASE=nextcloud # This is the database information we will set up in the next section
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_RANDOM_ROOT_PASSWORD=true
+
+  # Collabora — An pen source office suite similar to google docs
+  collabora:
+    image: collabora/code:latest
+    container_name: collabora
+    restart: unless-stopped
+    networks: 
+      - cloud
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - password=${COLLABORA_PASSWORD} 
+      - username=${COLLABORA_USER}
+      - domain=${COLLABORA_DOMAIN} # domain your nextcloud is on
+      - extra_params=--o:ssl.enable=true # Use if have ssl. You should.
+    ports:
+      - 9980:9980
+
+  # Redis — Memory Caching. If you’re going to rely on next cloud for important files, I highly recommend setting up Redis.
+  redis:
+    image: redis:alpine
+    container_name: redis
+    volumes:
+      -  /home/sunnyhouse_server/docker/redis:/data  
+    networks: 
+      - cloud
+
+  # Nginx Proxy Manager — A reverse proxy manager to handle incoming requests to the server.
+  # nginx-proxy:
+  #   image: 'jc21/nginx-proxy-manager:latest'
+  #   container_name: nginx-proxy
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - TZ=${TZ}
+  #   restart: unless-stopped
+  #   ports:
+  #     - '80:80'
+  #     - '81:81'
+  #     - '443:443'
+  #   volumes:
+  #     -  /home/sunnyhouse_server/docker/data:/data
+  #     -  /home/sunnyhouse_server/docker/letsencrypt:/etc/letsencrypt
+
+  # Filebrowser - A file management web application
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    volumes:
+      - ${HOME_DIR}:/srv 
+      - /home/sunnyhouse_server/docker/filebrowser/filebrowser.db:/database/filebrowser.db #Change to match your directory
+      - /home/sunnyhouse_server/docker/filebrowser/settings.json:/config/settings.json #Change to match your directory
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 9999:80 
+
+  # Bender - Simple app dashboard for your services
+  bender:
+    image: jez500/bender
+    #To build from source, comment previous line and uncomment below
+    #build: .
+    container_name: bender
+    volumes:
+      - /home/sunnyhouse_server/docker/bender:/app/static
+    ports:
+      - 8080:8080
+    user: ${PGID}:1000 # default
+    environment:
+      - INIT_ASSETS=1 # default

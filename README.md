@@ -57,11 +57,14 @@ docker-compose up -d
 ```
 
 2. Access the services:
+   - Bender: `http://localhost:8080`
    - Portainer: `http://localhost:9000`
    - qBittorrent: `http://localhost:8085`
    - Jackett: `http://localhost:9117`
    - Sonarr: `http://localhost:8989`
    - Prowlarr: `http://localhost:9696`
+   - JellyFin: ``http://localhost:8096`
+   - NextCloud: `http://localhost:8081`
 
 3. Stop the stack:
 ```bash
@@ -69,6 +72,9 @@ docker-compose down
 ```
 
 ## ⚙️ Configuration
+
+### Bender
+- Simple UI to add links to each container, kind of like a launcher
 
 ### Jellyfin
 - Configure media libraries through the web interface
@@ -92,10 +98,45 @@ In short, using Linux:
       WIREGUARD_PRIVATE_KEY=<YOUR_WIREGUARD_ACCESS_TOKEN>
       WIREGUARD_ADDRESSES=<SERVER_ADDRESS>/<NUMBER_FOUND_AT_BOTTOM_OF_RESPONSE>
 
+### Nextcloud
+- Access URL: `http://localhost:8081`
+- Default data directory: `/media/data/nextcloud/data`
+- Features:
+  - File synchronization
+  - Online document editing with Collabora
+  - Redis caching for improved performance
+  - MariaDB for reliable data storage
+
+### Collabora Online
+- Access through Nextcloud
+- Supports document editing
+- Secure SSL connection
+- Custom domain configuration required
+
+### Redis Cache
+- Improves Nextcloud performance
+- Persistent storage in ./redis
+- No direct configuration needed
+
+### Database (MariaDB)
+- Automated setup with environment variables
+- Data persistence in ./nextclouddb
+- Secure random root password generation
+
+### Nginx Proxy Manager (Optional)
+- Web UI at port 81
+- SSL certificate management
+- Reverse proxy configuration
+- Custom domain support
+
 ### qBittorrent
 - Web UI port: 8085
 - Default credentials: admin/adminadmin
 - Download directory: `/downloads`
+
+### Filebrowser
+- Web UI port: 9999
+- Default credentials: admin/admin
 
 ## 🔒 Security Notes
 
@@ -110,12 +151,24 @@ In short, using Linux:
 /home/sunnyhouse_server/docker/
 ├── docker-compose.yml
 ├── .env
+├── secrets/
+│   └── secrets.env
 ├── qbittorrent/
 ├── jackett/
 ├── sonarr/
 ├── prowlarr/
-└── media/
-    └── jellyfin/
+├── nextclouddb/
+├── redis/
+├── media/
+│   ├── jellyfin/
+│   └── nextcloud/
+│       ├── html
+│       ├── custom_apps
+│       ├── config
+│       └── data
+└── nginx-proxy/
+    ├── data
+    └── letsencrypt
 ```
 
 ## 🔧 Maintenance
