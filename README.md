@@ -5,7 +5,7 @@ A Docker Compose configuration for a comprehensive media server stack with built
 ## 🚀 Services
 
 - **Portainer**: Container management UI (port 9000)
-- **Jellyfin**: Media streaming server
+- **Jellyfin**: Media streaming server (port 8096)
 - **Gluetun**: VPN client (NordVPN)
 - **qBittorrent**: Torrent client (port 8085)
 - **Media Management**:
